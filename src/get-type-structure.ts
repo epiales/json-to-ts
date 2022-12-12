@@ -68,9 +68,13 @@ function objectsHaveSameEntries(obj1: any, obj2: any): boolean {
   return sameLength && sameTypes;
 }
 
-function getSimpleTypeName(value: any): string {
-  if (value === null) {
+function getSimpleTypeName(value: any, isEnum = false): string {
+  if (value === null && isEnum) {
+    return null;
+  } else if (value === null) {
     return "null";
+  } else if (isEnum) {
+    return `"${value}"`;
   } else if (value instanceof Date) {
     return "Date";
   } else {
@@ -90,9 +94,10 @@ function getTypeGroup(value: any): TypeGroup {
   }
 }
 
-function createTypeObject(obj: any, types: TypeDescription[]): any {
+function createTypeObject(obj: any, types: TypeDescription[], enums?: string[]): any {
   return Object.entries(obj).reduce((typeObj, [key, value]) => {
-    const { rootTypeId } = getTypeStructure(value, types);
+    const isEnum = enums.includes(key);
+    const { rootTypeId } = getTypeStructure(value, types, enums, isEnum);
 
     return {
       ...typeObj,
@@ -231,11 +236,13 @@ function getInnerArrayType(typesOfArray: string[], types: TypeDescription[]): st
 
 export function getTypeStructure(
   targetObj: any, // object that we want to create types for
-  types: TypeDescription[] = []
+  types: TypeDescription[] = [],
+  enums: string[] = [],
+  isEnum = false
 ): TypeStructure {
   switch (getTypeGroup(targetObj)) {
     case TypeGroup.Array:
-      const typesOfArray = (<any[]>targetObj).map(_ => getTypeStructure(_, types).rootTypeId).filter(onlyUnique);
+      const typesOfArray = (<any[]>targetObj).map(_ => getTypeStructure(_, types, enums).rootTypeId).filter(onlyUnique);
       const arrayInnerTypeId = getInnerArrayType(typesOfArray, types); // create "union type of array types"
       const typeId = getIdByType([arrayInnerTypeId], types); // create type "array of union type"
 
@@ -245,7 +252,7 @@ export function getTypeStructure(
       };
 
     case TypeGroup.Object:
-      const typeObj = createTypeObject(targetObj, types);
+      const typeObj = createTypeObject(targetObj, types, enums);
       const objType = getIdByType(typeObj, types);
 
       return {
@@ -255,12 +262,12 @@ export function getTypeStructure(
 
     case TypeGroup.Primitive:
       return {
-        rootTypeId: getSimpleTypeName(targetObj),
+        rootTypeId: getSimpleTypeName(targetObj, isEnum),
         types
       };
 
     case TypeGroup.Date:
-      const dateType = getSimpleTypeName(targetObj);
+      const dateType = getSimpleTypeName(targetObj, isEnum);
 
       return {
         rootTypeId: dateType,

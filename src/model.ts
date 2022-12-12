@@ -33,6 +33,7 @@ export interface InterfaceDescription {
 }
 
 export interface Options {
+  enums?: string[];
   rootName?: string;
   /** To generate using type alias instead of interface */
   useTypeAlias?: boolean;
